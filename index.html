@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Talerang Assessment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="brand-header">
+  <button class="checklist-nav-btn" id="header-checklist-btn" onclick="goTo('checklist')">View Checklist</button>
+  <img src="assets/logo.png" alt="Talerang" class="brand-logo">
+</header>
+
+<div class="app">
+
+  <!-- WELCOME SCREEN -->
+  <section id="screen-welcome" class="screen active">
+    <div class="card">
+      <h1>Talerang Assessment</h1>
+      <p>This assessment is organized across the 6 days of your program. You can complete a day's questions and exit &mdash; your progress checklist will show you exactly where you left off.</p>
+      <button class="btn-primary" onclick="goTo('register')">Get Started</button>
+    </div>
+  </section>
+
+  <!-- REGISTRATION SCREEN -->
+  <section id="screen-register" class="screen">
+    <div class="card">
+      <h2>Your details</h2>
+      <p class="muted">We'll use this to save your results.</p>
+
+      <label for="input-name">Full name</label>
+      <input type="text" id="input-name" placeholder="e.g. Priya Sharma">
+      <div class="error" id="error-name"></div>
+
+      <label for="input-mobile">Mobile number</label>
+      <input type="tel" id="input-mobile" placeholder="e.g. 9876543210">
+      <div class="error" id="error-mobile"></div>
+
+      <label for="input-email">Email address</label>
+      <input type="email" id="input-email" placeholder="e.g. priya@example.com">
+      <div class="error" id="error-email"></div>
+
+      <button class="btn-primary" onclick="submitRegistration()">Continue</button>
+    </div>
+  </section>
+
+  <!-- ALREADY COMPLETED SCREEN -->
+  <section id="screen-alreadyCompleted" class="screen">
+    <div class="card center">
+      <h2>You've already completed this assessment</h2>
+      <p>Our records show this email has already submitted a finished assessment. Each student gets one attempt.</p>
+      <p class="muted" id="alreadyCompleted-score"></p>
+      <p class="muted">If you believe this is a mistake, please contact your Talerang facilitator.</p>
+    </div>
+  </section>
+
+  <!-- INSTRUCTIONS SCREEN -->
+  <section id="screen-instructions" class="screen">
+    <div class="card">
+      <h2>Before you begin</h2>
+      <p>Choose the option that you believe is the <strong>most appropriate response</strong>.</p>
+      <p class="muted">Some questions may have more than one reasonable answer. Where a question asks you to pick just one, select the response you believe is the most correct or appropriate one.</p>
+      <p class="muted">You'll move through 10 modules in order. You can review and change your answer before moving to the next question, but you can't skip ahead or go back once a module is complete.</p>
+      <button class="btn-primary" onclick="goTo('checklist')">See my progress</button>
+    </div>
+  </section>
+
+  <!-- CHECKLIST SCREEN -->
+  <section id="screen-checklist" class="screen">
+    <div class="card">
+      <h2>Your progress</h2>
+      <div id="checklist-list"></div>
+      <button class="btn-primary" id="checklist-continue-btn" onclick="continueFromChecklist()">Continue</button>
+    </div>
+  </section>
+
+  <!-- QUIZ SCREEN -->
+  <section id="screen-quiz" class="screen">
+    <div class="card">
+      <div class="quiz-meta">
+        <span id="quiz-module-label"></span>
+        <span id="quiz-progress-label" class="muted"></span>
+      </div>
+      <div class="progress-bar"><div class="progress-bar-fill" id="quiz-progress-fill"></div></div>
+
+      <div id="quiz-prework" class="prework"></div>
+
+      <div class="section-tag" id="quiz-section-tag"></div>
+      <h3 id="quiz-question-text"></h3>
+      <div id="quiz-options"></div>
+      <div class="error" id="quiz-error"></div>
+
+      <div class="quiz-nav">
+        <button class="btn-secondary" id="quiz-back-btn" onclick="quizBack()">Back</button>
+        <button class="btn-primary" id="quiz-next-btn" onclick="quizNext()">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODULE RESULT SCREEN -->
+  <section id="screen-moduleResult" class="screen">
+    <div class="card center">
+      <p class="muted context-label" id="moduleResult-daylabel"></p>
+      <h2 id="moduleResult-title"></h2>
+      <p class="muted">Your score</p>
+      <div class="big-score" id="moduleResult-percent"></div>
+      <p class="muted" id="moduleResult-fraction"></p>
+      <p class="sync-status" id="moduleResult-syncStatus"></p>
+      <button class="btn-primary" id="moduleResult-continue-btn" onclick="continueAfterModuleResult()"></button>
+      <button class="btn-secondary" id="moduleResult-exit-btn" onclick="goTo('checklist')">Exit to Checklist</button>
+    </div>
+  </section>
+
+  <!-- FINAL RESULT SCREEN -->
+  <section id="screen-finalResult" class="screen">
+    <div class="card center">
+      <h2>Assessment complete</h2>
+      <p>Congratulations on completing the Talerang Assessment.</p>
+      <p class="muted">Your overall score</p>
+      <div class="big-score" id="finalResult-percent"></div>
+
+      <table class="results-table" id="finalResult-table"></table>
+
+      <p class="sync-status" id="finalResult-syncStatus"></p>
+      <button class="btn-secondary" id="finalResult-retry-btn" onclick="retrySubmission()" style="display:none;">Retry Saving</button>
+
+      <div class="final-actions">
+        <button class="btn-secondary" onclick="goTo('review')">Review My Answers</button>
+        <button class="btn-secondary" onclick="alert('The leaderboard will be connected in a later phase of this build.')">View Leaderboard</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVIEW SCREEN -->
+  <section id="screen-review" class="screen">
+    <div class="card">
+      <h2>Review your answers</h2>
+      <div id="review-list"></div>
+      <button class="btn-primary" onclick="goTo('finalResult')">Back to results</button>
+    </div>
+  </section>
+
+</div>
+
+<script src="questionBank.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
