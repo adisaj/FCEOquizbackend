@@ -276,33 +276,81 @@ input:focus {
   font-size: 50px;
   font-weight: 800;
   color: var(--talerang-blue);
-  margin: 10px 0;
+  margin: 10px 0 4px;
   font-family: 'Montserrat', sans-serif;
 }
 
-.results-table {
+/* Score bars — used under the big percentage numbers and in the per-day breakdown */
+.score-bar-track {
+  background: var(--talerang-grey);
+  border-radius: 6px;
+  height: 10px;
   width: 100%;
-  border-collapse: collapse;
+  overflow: hidden;
+  margin: 6px 0 4px;
+}
+
+.score-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--talerang-blue);
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+.workready-badge {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 20px;
+  margin: 10px 0 4px;
+}
+
+.workready-badge.ready { background: rgba(34, 34, 98, 0.08); color: var(--talerang-blue); }
+.workready-badge.not-ready { background: rgba(190, 30, 45, 0.08); color: var(--talerang-red); }
+
+.results-list {
   margin-top: 22px;
+  text-align: left;
+}
+
+.result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-light);
   font-size: 14px;
 }
 
-.results-table th {
-  text-align: left;
-  color: var(--talerang-blue);
+.result-row-label {
+  flex: 1 1 auto;
+  color: var(--text-body);
+}
+
+.result-row-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+  width: 45%;
+  max-width: 220px;
+}
+
+.result-row-bar-wrap .score-bar-track {
+  flex: 1;
+  margin: 0;
+}
+
+.result-row-bar-wrap .score-bar-label {
   font-weight: 700;
-  padding: 8px 6px;
-  border-bottom: 2px solid var(--talerang-blue);
-}
-
-.results-table td {
-  text-align: left;
-  padding: 9px 6px;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.results-table th:last-child, .results-table td:last-child {
+  font-size: 13px;
+  color: var(--talerang-blue);
+  width: 34px;
   text-align: right;
+  flex-shrink: 0;
 }
 
 .final-actions {
@@ -361,4 +409,6 @@ input:focus {
   .card { padding: 26px 20px; }
   .big-score { font-size: 42px; }
   .brand-logo { height: 36px; }
+  .result-row { flex-wrap: wrap; }
+  .result-row-bar-wrap { width: 100%; max-width: none; }
 }

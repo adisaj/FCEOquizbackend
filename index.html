@@ -55,6 +55,7 @@
       <h2>You've already completed this assessment</h2>
       <p>Our records show this email has already submitted a finished assessment. Each student gets one attempt.</p>
       <p class="muted" id="alreadyCompleted-score"></p>
+      <p id="alreadyCompleted-workready"></p>
       <p class="muted">If you believe this is a mistake, please contact your Talerang facilitator.</p>
     </div>
   </section>
@@ -109,9 +110,11 @@
       <h2 id="moduleResult-title"></h2>
       <p class="muted">Your score</p>
       <div class="big-score" id="moduleResult-percent"></div>
+      <div class="score-bar-track"><div class="score-bar-fill" id="moduleResult-bar"></div></div>
       <p class="muted" id="moduleResult-fraction"></p>
       <p class="sync-status" id="moduleResult-syncStatus"></p>
       <button class="btn-primary" id="moduleResult-continue-btn" onclick="continueAfterModuleResult()"></button>
+      <button class="btn-secondary" id="moduleResult-retake-btn" onclick="retakeCurrentModule()" style="display:none;">Not happy with this score? Retake (one-time only)</button>
       <button class="btn-secondary" id="moduleResult-exit-btn" onclick="goTo('checklist')">Exit to Checklist</button>
     </div>
   </section>
@@ -123,15 +126,16 @@
       <p>Congratulations on completing the Talerang Assessment.</p>
       <p class="muted">Your overall score</p>
       <div class="big-score" id="finalResult-percent"></div>
+      <div class="score-bar-track"><div class="score-bar-fill" id="finalResult-bar"></div></div>
+      <p id="finalResult-workready"></p>
 
-      <table class="results-table" id="finalResult-table"></table>
+      <div class="results-list" id="finalResult-table"></div>
 
       <p class="sync-status" id="finalResult-syncStatus"></p>
       <button class="btn-secondary" id="finalResult-retry-btn" onclick="retrySubmission()" style="display:none;">Retry Saving</button>
 
       <div class="final-actions">
         <button class="btn-secondary" onclick="goTo('review')">Review My Answers</button>
-        <button class="btn-secondary" onclick="alert('The leaderboard will be connected in a later phase of this build.')">View Leaderboard</button>
       </div>
     </div>
   </section>

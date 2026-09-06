@@ -10,8 +10,20 @@ const state = {
   answers: {},           // questionId -> array of selected option indices
   moduleResults: {},     // moduleId -> { score, max, percent }
   moduleStatus: {},      // moduleId -> 'locked' | 'current' | 'complete'
-  moduleResultNextAction: null
+  moduleRetryUsed: {},   // moduleId -> true once a student has used their one retake
+  moduleResultNextAction: null,
+  moduleRetakeAction: null
 };
+
+// A student is considered "Work Ready" at 70% or higher overall.
+const WORK_READY_THRESHOLD = 70;
+
+function workReadyBadgeHtml(overallPercent) {
+  if (overallPercent >= WORK_READY_THRESHOLD) {
+    return '<span class="workready-badge ready">Work Ready \u2713</span>';
+  }
+  return '<span class="workready-badge not-ready">Not Yet Work Ready (' + WORK_READY_THRESHOLD + '%+ required)</span>';
+}
 
 // Set up initial module statuses: first module is "current", rest "locked"
 moduleStructure.forEach((m, i) => {
@@ -194,10 +206,14 @@ async function submitRegistration() {
 
 function showAlreadyCompletedScreen(progress) {
   const scoreEl = document.getElementById("alreadyCompleted-score");
+  const workReadyEl = document.getElementById("alreadyCompleted-workready");
   if (progress && progress.Overall_Score !== null && progress.Overall_Score !== undefined) {
-    scoreEl.textContent = "Your recorded overall score: " + progress.Overall_Score + "%";
+    const score = Number(progress.Overall_Score);
+    scoreEl.textContent = "Your recorded overall score: " + score + "%";
+    workReadyEl.innerHTML = workReadyBadgeHtml(score);
   } else {
     scoreEl.textContent = "";
+    workReadyEl.innerHTML = "";
   }
   goTo("alreadyCompleted");
 }
@@ -461,10 +477,12 @@ function finishModule(mod, questions) {
   document.getElementById("moduleResult-daylabel").textContent = dayFullTitle(mod.parent);
   document.getElementById("moduleResult-title").textContent = resultTitle;
   document.getElementById("moduleResult-percent").textContent = percent + "%";
+  document.getElementById("moduleResult-bar").style.width = percent + "%";
   document.getElementById("moduleResult-fraction").textContent = score + " / " + max + " points";
 
   const continueBtn = document.getElementById("moduleResult-continue-btn");
   const exitBtn = document.getElementById("moduleResult-exit-btn");
+  const retakeBtn = document.getElementById("moduleResult-retake-btn");
 
   if (nextMod) {
     continueBtn.textContent = "Continue to " + shortDisplayLabel(nextMod) + " \u2192";
@@ -474,6 +492,16 @@ function finishModule(mod, questions) {
     continueBtn.textContent = "See Final Results";
     state.moduleResultNextAction = () => showFinalResults();
     exitBtn.style.display = "none"; // nothing left to pause before — go straight to results
+  }
+
+  // One retake per module, ever (within this sitting — see retakeModule() for why that's
+  // the natural boundary given how resuming across days already works).
+  if (!state.moduleRetryUsed[mod.id]) {
+    retakeBtn.style.display = "block";
+    state.moduleRetakeAction = () => retakeModule(mod);
+  } else {
+    retakeBtn.style.display = "none";
+    state.moduleRetakeAction = null;
   }
 
   goTo("moduleResult");
@@ -493,6 +521,22 @@ function continueAfterModuleResult() {
   if (state.moduleResultNextAction) state.moduleResultNextAction();
 }
 
+function retakeCurrentModule() {
+  if (state.moduleRetakeAction) state.moduleRetakeAction();
+}
+
+// Lets a student redo a single day/part exactly once. Clears their previous answers
+// for that module only, then restarts it fresh. Because resuming into a new session
+// always skips modules that already have a saved score (see applyResumedProgress),
+// this retake option is only ever reachable in the same sitting, right after finishing
+// that module — which is exactly the "not happy with it yet, try again now" window
+// this feature is meant for.
+function retakeModule(mod) {
+  state.moduleRetryUsed[mod.id] = true;
+  getQuestionsForModule(mod.id).forEach(q => { delete state.answers[q.id]; });
+  startModule(mod.id);
+}
+
 // ---------- Final results ----------
 function showFinalResults() {
   let totalWeightedScore = 0;
@@ -506,12 +550,22 @@ function showFinalResults() {
   const overallPercent = Math.round((totalWeightedScore / totalMax) * 100);
 
   document.getElementById("finalResult-percent").textContent = overallPercent + "%";
+  document.getElementById("finalResult-bar").style.width = overallPercent + "%";
+  document.getElementById("finalResult-workready").innerHTML = workReadyBadgeHtml(overallPercent);
 
-  const table = document.getElementById("finalResult-table");
-  table.innerHTML = "<tr><th>Day</th><th>Score</th></tr>";
+  const list = document.getElementById("finalResult-table");
+  list.innerHTML = "";
   moduleStructure.forEach(m => {
     const r = state.moduleResults[m.id];
-    table.innerHTML += "<tr><td>" + shortDisplayLabel(m) + "</td><td>" + r.percent + "%</td></tr>";
+    const row = document.createElement("div");
+    row.className = "result-row";
+    row.innerHTML =
+      '<span class="result-row-label">' + shortDisplayLabel(m) + '</span>' +
+      '<div class="result-row-bar-wrap">' +
+        '<div class="score-bar-track"><div class="score-bar-fill" style="width:' + r.percent + '%"></div></div>' +
+        '<span class="score-bar-label">' + r.percent + '%</span>' +
+      '</div>';
+    list.appendChild(row);
   });
 
   goTo("finalResult");
