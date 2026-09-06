@@ -117,7 +117,6 @@ function shouldShowChecklistButton(screenName) {
   if (screenName === "checklist") return false;       // already there — redundant
   if (screenName === "welcome") return false;         // nothing to show before registering
   if (screenName === "register") return false;        // registration isn't done yet
-  if (screenName === "alreadyCompleted") return false; // this student is blocked anyway
   return !!state.student.email;                        // only ever show once registered
 }
 
@@ -184,11 +183,12 @@ async function submitRegistration() {
     const response = await fetch(checkUrl);
     const result = await response.json();
 
-    if (result.completed) {
-      showAlreadyCompletedScreen(result.progress);
-    } else if (result.exists) {
-      applyResumedProgress(result.progress);
-      goTo("checklist"); // returning students skip straight past the instructions screen
+    if (result.exists) {
+      // Whether they're mid-assessment or fully finished, the checklist is now the
+      // right landing spot — completed days show their score plus a one-time retake
+      // option, and a fully-done student sees "See Final Results" instead of a next day.
+      applyResumedProgress(result.progress, result.retriesUsed);
+      goTo("checklist");
     } else {
       goTo("instructions"); // brand new student
     }
@@ -204,24 +204,12 @@ async function submitRegistration() {
   }
 }
 
-function showAlreadyCompletedScreen(progress) {
-  const scoreEl = document.getElementById("alreadyCompleted-score");
-  const workReadyEl = document.getElementById("alreadyCompleted-workready");
-  if (progress && progress.Overall_Score !== null && progress.Overall_Score !== undefined) {
-    const score = Number(progress.Overall_Score);
-    scoreEl.textContent = "Your recorded overall score: " + score + "%";
-    workReadyEl.innerHTML = workReadyBadgeHtml(score);
-  } else {
-    scoreEl.textContent = "";
-    workReadyEl.innerHTML = "";
-  }
-  goTo("alreadyCompleted");
-}
-
 // Takes the {Day1_PartA: 80, Day1_PartB: null, ...} object from checkEmail and
 // rebuilds this session's local progress to match — so a returning student's
 // checklist and starting point are correct without redoing finished days.
-function applyResumedProgress(progress) {
+// Also restores which days they've already used their one-time retake on, so that
+// stays enforced across logins, not just within a single browser session.
+function applyResumedProgress(progress, retriesUsedList) {
   moduleStructure.forEach(m => {
     const val = progress[sheetColumnKey(m)];
     if (val !== null && val !== undefined && val !== "") {
@@ -231,13 +219,21 @@ function applyResumedProgress(progress) {
   });
 
   // Whatever comes right after the last completed day becomes "current"; anything
-  // further out stays "locked".
+  // further out stays "locked". If every day is already complete, none become
+  // "current" — the checklist naturally offers "See Final Results" in that case.
   let foundCurrent = false;
   moduleStructure.forEach(m => {
     if (state.moduleStatus[m.id] === "complete") return;
     state.moduleStatus[m.id] = foundCurrent ? "locked" : "current";
     foundCurrent = true;
   });
+
+  (retriesUsedList || []).forEach(id => { state.moduleRetryUsed[id] = true; });
+}
+
+// Builds the comma-separated string saved to the sheet's Retries_Used column.
+function retriesUsedString() {
+  return Object.keys(state.moduleRetryUsed).filter(id => state.moduleRetryUsed[id]).join(",");
 }
 
 // ---------- Checklist ----------
@@ -280,6 +276,13 @@ function renderChecklist() {
     const nextModule = moduleStructure.find(m => state.moduleStatus[m.id] === "current");
     continueBtn.textContent = "Continue to " + shortDisplayLabel(nextModule);
   }
+
+  // A student who has already finished everything gets a friendly heads-up that
+  // they can still retake individual days rather than a plain, unexplained checklist.
+  const noteEl = document.getElementById("checklist-completed-note");
+  noteEl.textContent = allDone
+    ? "You've already completed this assessment. You can retake any single day once below if you're not happy with that score, or view your final results."
+    : "";
 }
 
 function buildChecklistRow(m, indent) {
@@ -295,10 +298,24 @@ function buildChecklistRow(m, indent) {
   const rowLabel = indent ? ("Part " + letter) : dayFullTitle(m.parent);
 
   const label = document.createElement("span");
+  label.className = "checklist-item-label";
   label.textContent = rowLabel + (status === "complete" ? " \u2014 " + state.moduleResults[m.id].percent + "%" : "");
 
   row.appendChild(icon);
   row.appendChild(label);
+
+  if (status === "complete" && !state.moduleRetryUsed[m.id]) {
+    const retakeLink = document.createElement("button");
+    retakeLink.type = "button";
+    retakeLink.className = "checklist-retake-link";
+    retakeLink.textContent = "Retake";
+    retakeLink.onclick = (e) => {
+      e.stopPropagation();
+      retakeModule(m);
+    };
+    row.appendChild(retakeLink);
+  }
+
   return row;
 }
 
@@ -465,10 +482,12 @@ function finishModule(mod, questions) {
   state.moduleResults[mod.id] = { score, max, percent };
   state.moduleStatus[mod.id] = "complete";
 
-  const nextMod = moduleStructure[state.currentModuleIdx + 1];
-
-  // Let the checklist know what's next as soon as this module is done —
-  // this way it's accurate even if the student exits instead of continuing.
+  // What's "next" is whatever isn't complete yet, in sequence order — NOT simply the
+  // next array index. This matters once a student can retake an EARLIER day out of
+  // sequence (e.g. from the checklist): finishing that retake should send them back to
+  // wherever they actually left off, not to whatever numerically follows the retaken day.
+  const remainingModules = moduleStructure.filter(m => state.moduleStatus[m.id] !== "complete");
+  const nextMod = remainingModules.length > 0 ? remainingModules[0] : null;
   if (nextMod) state.moduleStatus[nextMod.id] = "current";
 
   const letter = partLetter(mod.id);
@@ -489,13 +508,15 @@ function finishModule(mod, questions) {
     state.moduleResultNextAction = () => startModule(nextMod.id);
     exitBtn.style.display = "block";
   } else {
+    // Nothing left incomplete — either a normal finish of Day 6, or this was a
+    // retake of an already-fully-completed assessment. Either way: show results.
     continueBtn.textContent = "See Final Results";
     state.moduleResultNextAction = () => showFinalResults();
-    exitBtn.style.display = "none"; // nothing left to pause before — go straight to results
+    exitBtn.style.display = "none";
   }
 
-  // One retake per module, ever (within this sitting — see retakeModule() for why that's
-  // the natural boundary given how resuming across days already works).
+  // One retake per day/part, ever — enforced across logins via the Retries_Used
+  // column in the sheet, restored into state.moduleRetryUsed on login.
   if (!state.moduleRetryUsed[mod.id]) {
     retakeBtn.style.display = "block";
     state.moduleRetakeAction = () => retakeModule(mod);
@@ -507,11 +528,13 @@ function finishModule(mod, questions) {
   goTo("moduleResult");
 
   // Save just this day's score right away, so progress survives even if the
-  // student never comes back to finish the rest.
+  // student never comes back to finish the rest. Retries_Used is resent every
+  // time too, so the sheet always reflects the current, complete picture.
   const dayPayload = {
     Name: state.student.name,
     Mobile: state.student.mobile,
-    Email: state.student.email
+    Email: state.student.email,
+    Retries_Used: retriesUsedString()
   };
   dayPayload[sheetColumnKey(mod)] = percent;
   sendToSheet(dayPayload, "moduleResult-syncStatus", null);
@@ -525,12 +548,9 @@ function retakeCurrentModule() {
   if (state.moduleRetakeAction) state.moduleRetakeAction();
 }
 
-// Lets a student redo a single day/part exactly once. Clears their previous answers
-// for that module only, then restarts it fresh. Because resuming into a new session
-// always skips modules that already have a saved score (see applyResumedProgress),
-// this retake option is only ever reachable in the same sitting, right after finishing
-// that module — which is exactly the "not happy with it yet, try again now" window
-// this feature is meant for.
+// Lets a student redo a single day/part exactly once, whether that's immediately
+// after finishing it or after logging back in later (even after finishing everything).
+// Clears their previous answers for that module only, then restarts it fresh.
 function retakeModule(mod) {
   state.moduleRetryUsed[mod.id] = true;
   getQuestionsForModule(mod.id).forEach(q => { delete state.answers[q.id]; });
@@ -571,12 +591,14 @@ function showFinalResults() {
   goTo("finalResult");
 
   // Resend every day's score plus the Overall_Score as one final "flush" —
-  // this also quietly fixes any single day whose save failed earlier.
+  // this also quietly fixes any single day whose save failed earlier, and re-syncs
+  // Overall_Score whenever this runs after a post-completion retake.
   const payload = {
     Name: state.student.name,
     Mobile: state.student.mobile,
     Email: state.student.email,
-    Overall_Score: overallPercent
+    Overall_Score: overallPercent,
+    Retries_Used: retriesUsedString()
   };
   moduleStructure.forEach(m => {
     payload[sheetColumnKey(m)] = state.moduleResults[m.id].percent;

@@ -178,12 +178,35 @@ input:focus {
   text-align: center;
 }
 
+.checklist-item-label {
+  flex: 1 1 auto;
+}
+
+.checklist-retake-link {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--talerang-red);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0 4px 12px;
+  text-decoration: underline;
+}
+
+.checklist-retake-link:hover { color: #a11a27; }
+
 .checklist-item.complete .icon { color: var(--talerang-blue); }
 .checklist-item.current .icon { color: var(--talerang-red); }
 .checklist-item.locked { color: #9a9aa5; }
 .checklist-item.locked .icon { color: #c6c6d0; }
 
 .checklist-item.current { font-weight: 700; color: var(--talerang-red); }
+
+#checklist-completed-note {
+  margin-bottom: 4px;
+}
 
 .checklist-sub {
   padding-left: 30px;
